@@ -1,0 +1,3 @@
+[2026-06-12 15:19:21] [SUCCESS] Installed Steam via local installer.
+[2026-06-12 15:19:21] [SUCCESS] Copied Notepad++ Portable to C:\PortablePrograms.
+[2026-06-12 15:19:21] [ERROR] Failed to install Steam. Local installer not found and Winget timed out.

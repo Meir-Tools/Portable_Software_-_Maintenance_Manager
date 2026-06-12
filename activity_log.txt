@@ -1,0 +1,42 @@
+[2026-06-12 15:19:28] Application started successfully.
+[2026-06-12 15:20:52] Application started successfully.
+[2026-06-12 15:21:20] Initiating bulk installation cycle for 2 apps:
+[2026-06-12 15:21:20]  - Steam
+[2026-06-12 15:21:20]  - Notepad++ Portable
+[2026-06-12 15:21:20] Checking if Steam is already installed...
+[2026-06-12 15:21:21] Running local installer for Steam: LocalInstallers/SteamSetup.exe with args '/S'
+[2026-06-12 15:21:24] [SUCCESS] Installed Steam via local installer.
+[2026-06-12 15:21:24] Copying Notepad++ Portable from 'PortableApps/NotepadPlusPlus' to 'C:\PortablePrograms\NotepadPlusPlus'...
+[2026-06-12 15:21:24] [SUCCESS] Copied Notepad++ Portable Portable to C:\PortablePrograms\NotepadPlusPlus.
+[2026-06-12 15:21:24] Creating Desktop shortcut for Notepad++ Portable pointing to 'C:\PortablePrograms\NotepadPlusPlus\notepad++.exe'...
+[2026-06-12 15:21:25] [SUCCESS] Created Windows Desktop Shortcut for Notepad++ Portable.
+[2026-06-12 15:21:25] Bulk installation cycle completed.
+[2026-06-12 15:23:14] Application started successfully.
+[2026-06-12 15:23:46] Application started successfully.
+[2026-06-12 15:25:29] Application started successfully.
+[2026-06-12 15:26:28] Application started successfully.
+[2026-06-12 15:26:47] Application started successfully.
+[2026-06-12 15:29:10] Application started successfully.
+[2026-06-12 15:29:28] Application started successfully.
+[2026-06-12 15:30:35] Updated configuration for: Notepad++ Portable (Type: Installer)
+[2026-06-12 15:31:05] Updated configuration for: Notepad++ Portable (Type: Installer)
+[2026-06-12 15:33:05] Application started successfully.
+[2026-06-12 15:34:39] Application started successfully.
+[2026-06-12 15:34:43] Manual Installation Triggered: Notepad++ Portable via Winget.
+[2026-06-12 15:34:56] [SUCCESS] Installed Notepad++ Portable via Winget.
+[2026-06-12 15:36:55] Manual Installation Triggered: Steam via local installer.
+[2026-06-12 15:36:59] [ERROR] Local installer for Steam exited with code 1
+[2026-06-12 15:37:22] Application started successfully.
+[2026-06-12 15:56:32] Application started successfully.
+[2026-06-12 15:57:19] Added application to registry: 7-Zip (Type: Installer)
+[2026-06-12 15:57:29] Manual Installation Triggered: 7-Zip via Winget.
+[2026-06-12 15:57:30] [ERROR] Failed to install 7-Zip via Winget. Exit code: 2316632107
+[2026-06-12 15:58:38] Added application to registry: Google Chrome (Type: Installer)
+[2026-06-12 15:58:53] Added application to registry: Antigravity (Type: Installer)
+[2026-06-12 15:59:31] Added application to registry: Google Drive (Type: Installer)
+[2026-06-12 15:59:35] Manual Installation Triggered: Google Drive via Winget.
+[2026-06-12 16:00:44] [SUCCESS] Installed Google Drive via Winget.
+[2026-06-12 17:40:20] Application started successfully.
+[2026-06-12 17:42:37] Added application to registry: GitHub Desktop (Type: Installer)
+[2026-06-12 17:43:03] Manual Installation Triggered: GitHub Desktop via Winget.
+[2026-06-12 17:43:25] [SUCCESS] Installed GitHub Desktop via Winget.

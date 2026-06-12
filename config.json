@@ -1,0 +1,83 @@
+{
+  "Maintenance_Tools": [
+    {
+      "Name": "Rufus (Bootable USB)",
+      "Type": "Portable-Run",
+      "LocalPath": "PortableApps/Rufus/rufus.exe",
+      "Logo": "Assets/rufus_logo.png",
+      "Description": "Create bootable USB drives and flash ISO images."
+    },
+    {
+      "Name": "H2testw (USB Health)",
+      "Type": "Portable-Run",
+      "LocalPath": "PortableApps/H2testw/h2testw.exe",
+      "Logo": "Assets/h2testw_logo.png",
+      "Description": "Test USB flash drives for wear, bad sectors, and fake capacity."
+    }
+  ],
+  "Installers_After_Format": [
+    {
+      "Name": "Steam",
+      "Type": "Installer",
+      "WingetID": "Valve.Steam",
+      "LocalInstaller": "LocalInstallers/SteamSetup.exe",
+      "SilentArgs": "/S",
+      "Logo": "Assets/steam_logo.png",
+      "Description": "Digital distribution platform for gaming."
+    },
+    {
+      "Name": "Notepad++ Portable",
+      "Type": "Installer",
+      "Logo": "Assets/notepad_logo.png",
+      "Description": "Advanced text editor. Copies directly to avoid OS registry clutter.",
+      "WingetID": "Notepad++.Notepad++",
+      "LocalInstaller": "",
+      "SilentArgs": ""
+    },
+    {
+      "Name": "7-Zip",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "WingetID": "7zip.7zip",
+      "LocalInstaller": "",
+      "SilentArgs": ""
+    },
+    {
+      "Name": "Google Chrome",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "WingetID": "Google.Chrome",
+      "LocalInstaller": "",
+      "SilentArgs": ""
+    },
+    {
+      "Name": "Antigravity",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "WingetID": "Google.Antigravity",
+      "LocalInstaller": "",
+      "SilentArgs": ""
+    },
+    {
+      "Name": "Google Drive",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "WingetID": "Google.GoogleDrive",
+      "LocalInstaller": "",
+      "SilentArgs": ""
+    },
+    {
+      "Name": "GitHub Desktop",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "WingetID": "GitHub.GitHubDesktop",
+      "LocalInstaller": "",
+      "SilentArgs": ""
+    }
+  ]
+}
