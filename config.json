@@ -78,6 +78,15 @@
       "WingetID": "GitHub.GitHubDesktop",
       "LocalInstaller": "",
       "SilentArgs": ""
+    },
+    {
+      "Name": "Rainmeter",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "WingetID": "Rainmeter.Rainmeter",
+      "LocalInstaller": "",
+      "SilentArgs": ""
     }
   ]
 }
