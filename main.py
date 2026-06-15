@@ -8,6 +8,8 @@ import logging
 import datetime
 import threading
 import subprocess
+import webbrowser
+from urllib.parse import urlparse
 import customtkinter
 from PIL import Image
 
@@ -24,6 +26,24 @@ METHOD_LABELS = {
     "Portable-Copy": "Portable Copy",
     "Portable (Local)": "Portable (Local)",
 }
+
+def normalize_homepage_url(url):
+    url = (url or "").strip()
+    if not url:
+        return ""
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+    return url
+
+def get_homepage_display(url):
+    normalized = normalize_homepage_url(url)
+    if not normalized:
+        return ""
+    parsed = urlparse(normalized)
+    host = parsed.netloc or parsed.path
+    if host.startswith("www."):
+        host = host[4:]
+    return host
 
 # Setup standard logging
 logger = logging.getLogger("SoftwareManager")
@@ -64,7 +84,7 @@ class AppDetailPopup(customtkinter.CTkToplevel):
     def __init__(self, parent, app_data, install_status=None):
         super().__init__(parent)
         self.title("Application Details")
-        self.geometry("420x320")
+        self.geometry("420x360")
         self.resizable(False, False)
         
         # Keep on top of main app window
@@ -133,6 +153,26 @@ class AppDetailPopup(customtkinter.CTkToplevel):
         desc_box.insert("0.0", app_data.get("Description", "No description provided."))
         desc_box.configure(state="disabled")
         desc_box.grid(row=desc_box_row, column=0, padx=15, pady=(0, 10), sticky="nsew")
+
+        homepage = app_data.get("Homepage", "").strip()
+        if homepage:
+            homepage_row = desc_box_row + 1
+            close_row = homepage_row + 1
+            homepage_lbl = customtkinter.CTkLabel(
+                frame, text="Homepage:",
+                font=customtkinter.CTkFont(size=12, weight="bold")
+            )
+            homepage_lbl.grid(row=homepage_row, column=0, padx=15, pady=(0, 2), sticky="w")
+
+            homepage_btn = customtkinter.CTkButton(
+                frame, text=get_homepage_display(homepage), anchor="w",
+                fg_color="transparent", text_color=("#2563eb", "#60a5fa"),
+                hover_color=("#e2e8f0", "#334155"),
+                command=lambda url=homepage: webbrowser.open(normalize_homepage_url(url))
+            )
+            homepage_btn.grid(row=homepage_row, column=0, padx=(95, 15), pady=(0, 10), sticky="w")
+        else:
+            close_row = desc_box_row + 1
         
         # Close Button
         close_btn = customtkinter.CTkButton(
@@ -149,7 +189,7 @@ class AddProgramDialog(customtkinter.CTkToplevel):
         self.edit_app_data = edit_app_data # If provided, we are editing this app
         
         self.title("Edit Program" if self.edit_app_data else "Add New Program")
-        self.geometry("520x560")
+        self.geometry("520x610")
         self.resizable(False, False)
         self.attributes("-topmost", True)
         
@@ -253,10 +293,16 @@ class AddProgramDialog(customtkinter.CTkToplevel):
         desc_lbl.grid(row=5, column=0, padx=15, pady=8, sticky="nw")
         self.desc_entry = customtkinter.CTkEntry(self.main_frame, placeholder_text="Brief description of the app...")
         self.desc_entry.grid(row=5, column=1, columnspan=2, padx=15, pady=8, sticky="ew")
+
+        # Homepage (Row 6)
+        homepage_lbl = customtkinter.CTkLabel(self.main_frame, text="Homepage:", font=customtkinter.CTkFont(weight="bold"))
+        homepage_lbl.grid(row=6, column=0, padx=15, pady=8, sticky="w")
+        self.homepage_entry = customtkinter.CTkEntry(self.main_frame, placeholder_text="https://example.com")
+        self.homepage_entry.grid(row=6, column=1, columnspan=2, padx=15, pady=8, sticky="ew")
         
-        # Buttons (Row 6)
+        # Buttons (Row 7)
         buttons_frame = customtkinter.CTkFrame(self.main_frame, fg_color="transparent")
-        buttons_frame.grid(row=6, column=0, columnspan=3, padx=15, pady=(20, 15), sticky="ew")
+        buttons_frame.grid(row=7, column=0, columnspan=3, padx=15, pady=(20, 15), sticky="ew")
         buttons_frame.columnconfigure(0, weight=1)
         
         self.cancel_btn = customtkinter.CTkButton(
@@ -279,6 +325,7 @@ class AddProgramDialog(customtkinter.CTkToplevel):
             self.name_entry.insert(0, self.edit_app_data.get("Name", ""))
             self.logo_entry.insert(0, self.edit_app_data.get("Logo", ""))
             self.desc_entry.insert(0, self.edit_app_data.get("Description", ""))
+            self.homepage_entry.insert(0, self.edit_app_data.get("Homepage", ""))
             
             # Select Type
             app_type = self.edit_app_data.get("Type", "Installer")
@@ -360,6 +407,7 @@ class AddProgramDialog(customtkinter.CTkToplevel):
         app_type = self.type_var.get()
         logo = self.logo_entry.get().strip()
         desc = self.desc_entry.get().strip()
+        homepage = self.homepage_entry.get().strip()
         
         if not name:
             messagebox.showwarning("Validation Error", "Application Name is required.")
@@ -369,7 +417,8 @@ class AddProgramDialog(customtkinter.CTkToplevel):
             "Name": name,
             "Type": app_type,
             "Logo": logo if logo else "Assets/default_logo.png",
-            "Description": desc if desc else "No description provided."
+            "Description": desc if desc else "No description provided.",
+            "Homepage": homepage
         }
         
         if app_type == "Installer":
@@ -754,7 +803,7 @@ class PortableManagerApp(customtkinter.CTk):
         self.sidebar = customtkinter.CTkFrame(self, width=250, corner_radius=12, fg_color=("#f1f5f9", "#0f172a"))
         self.sidebar.grid(row=0, column=1, padx=(5, 15), pady=15, sticky="nsew")
         self.sidebar.grid_columnconfigure(0, weight=1)
-        self.sidebar.grid_rowconfigure(2, weight=1) # Log textbox expands
+        self.sidebar.grid_rowconfigure(4, weight=1) # Log textbox expands
         
         # Sidebar Title
         self.sidebar_title = customtkinter.CTkLabel(
@@ -771,6 +820,15 @@ class PortableManagerApp(customtkinter.CTk):
             command=self.start_bulk_installation
         )
         self.install_btn.grid(row=1, column=0, padx=15, pady=10, sticky="ew")
+
+        # Uninstall Selected Button
+        self.uninstall_btn = customtkinter.CTkButton(
+            self.sidebar, text="Uninstall Selected", height=45,
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            fg_color=("#ef4444", "#dc2626"), hover_color=("#dc2626", "#b91c1c"),
+            command=self.start_bulk_uninstallation
+        )
+        self.uninstall_btn.grid(row=2, column=0, padx=15, pady=10, sticky="ew")
         
         # Real-time Terminal Log Title
         self.log_title = customtkinter.CTkLabel(
@@ -778,16 +836,16 @@ class PortableManagerApp(customtkinter.CTk):
             font=customtkinter.CTkFont(size=12, weight="bold"),
             text_color=("#64748b", "#94a3b8")
         )
-        self.log_title.grid(row=2, column=0, padx=15, pady=(15, 5), sticky="w")
+        self.log_title.grid(row=3, column=0, padx=15, pady=(15, 5), sticky="w")
         
         # Real-time Terminal Textbox
         self.log_textbox = customtkinter.CTkTextbox(
-            self.sidebar, height=380,
+            self.sidebar, height=330,
             font=customtkinter.CTkFont(family="Consolas", size=11),
             fg_color=("#f8fafc", "#020617"), text_color=("#0f172a", "#10b981"),
             border_width=1, border_color=("#cbd5e1", "#1e293b")
         )
-        self.log_textbox.grid(row=3, column=0, padx=15, pady=(0, 20), sticky="nsew")
+        self.log_textbox.grid(row=4, column=0, padx=15, pady=(0, 20), sticky="nsew")
         self.log_textbox.configure(state="disabled")
 
     def show_app_popup(self, app_data):
@@ -879,6 +937,45 @@ class PortableManagerApp(customtkinter.CTk):
         badge.grid(row=2, column=0, sticky="w", pady=(2, 0))
         setattr(scroll_frame, f"status_badge_{name}", badge)
 
+    def open_homepage(self, app):
+        homepage = normalize_homepage_url(app.get("Homepage", ""))
+        if not homepage:
+            return
+        try:
+            webbrowser.open(homepage)
+            logger.info(f"Opened homepage for {app.get('Name')}: {homepage}")
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to open homepage for {app.get('Name')}: {e}")
+
+    def add_homepage_link_to_detail_frame(self, detail_frame, app):
+        homepage = app.get("Homepage", "").strip()
+        if not homepage:
+            return
+
+        homepage_btn = customtkinter.CTkButton(
+            detail_frame, text=f"🌐 {get_homepage_display(homepage)}",
+            height=22, anchor="w",
+            font=customtkinter.CTkFont(size=10),
+            fg_color="transparent", text_color=("#2563eb", "#60a5fa"),
+            hover_color=("#e2e8f0", "#334155"),
+            command=lambda a=app: self.open_homepage(a)
+        )
+        homepage_btn.grid(row=3, column=0, sticky="w", pady=(2, 0))
+
+    def add_homepage_action_button(self, actions_frame, app, column):
+        homepage = app.get("Homepage", "").strip()
+        if not homepage:
+            return column
+
+        homepage_btn = customtkinter.CTkButton(
+            actions_frame, text="🌐 Web", width=58, height=28,
+            font=customtkinter.CTkFont(size=11, weight="bold"),
+            fg_color=("#0ea5e9", "#0284c7"), hover_color=("#0284c7", "#0369a1"),
+            command=lambda a=app: self.open_homepage(a)
+        )
+        homepage_btn.grid(row=0, column=column, padx=2)
+        return column + 1
+
     def populate_maintenance_tab(self):
         for widget in self.maint_scroll.winfo_children():
             widget.destroy()
@@ -916,10 +1013,13 @@ class PortableManagerApp(customtkinter.CTk):
             desc_lbl.grid(row=1, column=0, sticky="w")
 
             self.add_status_badge_to_detail_frame(self.maint_scroll, detail_frame, tool)
+            self.add_homepage_link_to_detail_frame(detail_frame, tool)
             
             # Action buttons panel
             actions_frame = customtkinter.CTkFrame(row_frame, fg_color="transparent")
             actions_frame.grid(row=0, column=2, padx=10, pady=10, sticky="e")
+            
+            action_col = self.add_homepage_action_button(actions_frame, tool, 0)
             
             # 1. Winget Install
             winget_id = tool.get("WingetID", "")
@@ -930,7 +1030,7 @@ class PortableManagerApp(customtkinter.CTk):
                 state="normal" if winget_id else "disabled",
                 command=lambda t=tool: self.install_via_winget_clicked(t)
             )
-            winget_btn.grid(row=0, column=0, padx=2)
+            winget_btn.grid(row=0, column=action_col, padx=2)
             
             # 2. Local Install
             local_inst = tool.get("LocalInstaller", "")
@@ -941,7 +1041,7 @@ class PortableManagerApp(customtkinter.CTk):
                 state="normal" if local_inst else "disabled",
                 command=lambda t=tool: self.install_via_local_clicked(t)
             )
-            local_btn.grid(row=0, column=1, padx=2)
+            local_btn.grid(row=0, column=action_col + 1, padx=2)
             
             # 3. Portable open / copy
             source_folder = tool.get("SourceFolder", "")
@@ -955,7 +1055,7 @@ class PortableManagerApp(customtkinter.CTk):
                 state="normal" if is_portable else "disabled",
                 command=lambda t=tool: self.install_via_portable_clicked(t)
             )
-            portable_btn.grid(row=0, column=2, padx=2)
+            portable_btn.grid(row=0, column=action_col + 2, padx=2)
             
             # Inline Edit Button
             edit_btn = customtkinter.CTkButton(
@@ -1013,10 +1113,13 @@ class PortableManagerApp(customtkinter.CTk):
             desc_lbl.grid(row=1, column=0, sticky="w")
 
             self.add_status_badge_to_detail_frame(self.inst_scroll, detail_frame, inst)
+            self.add_homepage_link_to_detail_frame(detail_frame, inst)
             
             # Action buttons panel
             actions_frame = customtkinter.CTkFrame(row_frame, fg_color="transparent")
             actions_frame.grid(row=0, column=2, padx=10, pady=10, sticky="e")
+            
+            action_col = self.add_homepage_action_button(actions_frame, inst, 0)
             
             # 1. Winget Install
             winget_id = inst.get("WingetID", "")
@@ -1027,7 +1130,7 @@ class PortableManagerApp(customtkinter.CTk):
                 state="normal" if winget_id else "disabled",
                 command=lambda a=inst: self.install_via_winget_clicked(a)
             )
-            winget_btn.grid(row=0, column=0, padx=2)
+            winget_btn.grid(row=0, column=action_col, padx=2)
             
             # 2. Local Install
             local_inst = inst.get("LocalInstaller", "")
@@ -1038,7 +1141,7 @@ class PortableManagerApp(customtkinter.CTk):
                 state="normal" if local_inst else "disabled",
                 command=lambda a=inst: self.install_via_local_clicked(a)
             )
-            local_btn.grid(row=0, column=1, padx=2)
+            local_btn.grid(row=0, column=action_col + 1, padx=2)
             
             # 3. Portable open / copy
             source_folder = inst.get("SourceFolder", "")
@@ -1052,7 +1155,7 @@ class PortableManagerApp(customtkinter.CTk):
                 state="normal" if is_portable else "disabled",
                 command=lambda a=inst: self.install_via_portable_clicked(a)
             )
-            portable_btn.grid(row=0, column=2, padx=2)
+            portable_btn.grid(row=0, column=action_col + 2, padx=2)
             
             # Checkbox for bulk select
             var = customtkinter.BooleanVar(value=False)
@@ -1140,6 +1243,7 @@ class PortableManagerApp(customtkinter.CTk):
             method_lbl.grid(row=1, column=0, sticky="w", pady=(2, 0))
 
             details = status.get("details", "")
+            detail_row = 2
             if details:
                 details_lbl = customtkinter.CTkLabel(
                     detail_frame, text=details,
@@ -1147,14 +1251,31 @@ class PortableManagerApp(customtkinter.CTk):
                     text_color=("#475569", "#94a3b8"),
                     anchor="w"
                 )
-                details_lbl.grid(row=2, column=0, sticky="w")
+                details_lbl.grid(row=detail_row, column=0, sticky="w")
+                detail_row += 1
+
+            homepage = app.get("Homepage", "").strip()
+            if homepage:
+                homepage_btn = customtkinter.CTkButton(
+                    detail_frame, text=f"🌐 {get_homepage_display(homepage)}",
+                    height=22, anchor="w",
+                    font=customtkinter.CTkFont(size=10),
+                    fg_color="transparent", text_color=("#2563eb", "#60a5fa"),
+                    hover_color=("#e2e8f0", "#334155"),
+                    command=lambda a=app: self.open_homepage(a)
+                )
+                homepage_btn.grid(row=detail_row, column=0, sticky="w", pady=(2, 0))
+
+            actions_frame = customtkinter.CTkFrame(row_frame, fg_color="transparent")
+            actions_frame.grid(row=0, column=2, padx=12, pady=10, sticky="e")
+            type_col = self.add_homepage_action_button(actions_frame, app, 0)
 
             type_lbl = customtkinter.CTkLabel(
-                row_frame, text=app.get("Type", ""),
+                actions_frame, text=app.get("Type", ""),
                 font=customtkinter.CTkFont(size=11),
                 text_color=("#64748b", "#94a3b8")
             )
-            type_lbl.grid(row=0, column=2, padx=12, pady=10, sticky="e")
+            type_lbl.grid(row=0, column=type_col, padx=(8, 0), sticky="e")
 
     # Manual installation/execution handlers
     def install_via_winget_clicked(self, app):
@@ -1239,15 +1360,28 @@ class PortableManagerApp(customtkinter.CTk):
         threading.Thread(target=_run, daemon=True).start()
 
     # Bulk installation initiation
-    def start_bulk_installation(self):
-        # Gather all selected installers
+    def get_selected_installer_apps(self):
         selected_apps = []
         installers = self.config_data.get("Installers_After_Format", [])
         for inst in installers:
             name = inst.get("Name")
             if self.checkbox_vars.get(name) and self.checkbox_vars.get(name).get():
                 selected_apps.append(inst)
-                
+        return selected_apps
+
+    def set_bulk_action_buttons_state(self, installing=False, uninstalling=False):
+        if installing:
+            self.install_btn.configure(state="disabled", text="Installing...")
+            self.uninstall_btn.configure(state="disabled")
+        elif uninstalling:
+            self.uninstall_btn.configure(state="disabled", text="Uninstalling...")
+            self.install_btn.configure(state="disabled")
+        else:
+            self.install_btn.configure(state="normal", text="Install Selected (V)")
+            self.uninstall_btn.configure(state="normal", text="Uninstall Selected")
+
+    def start_bulk_installation(self):
+        selected_apps = self.get_selected_installer_apps()
         if not selected_apps:
             logger.info("No applications selected for installation.")
             return
@@ -1255,9 +1389,26 @@ class PortableManagerApp(customtkinter.CTk):
         # Run bulk process in background thread
         threading.Thread(target=self.process_installations, args=(selected_apps,), daemon=True).start()
 
+    def start_bulk_uninstallation(self):
+        from tkinter import messagebox
+
+        selected_apps = self.get_selected_installer_apps()
+        if not selected_apps:
+            logger.info("No applications selected for uninstallation.")
+            return
+
+        app_list = "\n".join(f" - {app.get('Name')}" for app in selected_apps)
+        if not messagebox.askyesno(
+            "Confirm Uninstall",
+            f"Uninstall {len(selected_apps)} selected application(s) from this PC?\n\n{app_list}"
+        ):
+            logger.info("Bulk uninstallation cancelled by user.")
+            return
+
+        threading.Thread(target=self.process_uninstallations, args=(selected_apps,), daemon=True).start()
+
     def process_installations(self, apps):
-        # UI Button update (Thread-safe)
-        self.install_btn.after(0, lambda: self.install_btn.configure(state="disabled", text="Installing..."))
+        self.install_btn.after(0, lambda: self.set_bulk_action_buttons_state(installing=True))
         
         logger.info(f"Initiating bulk installation cycle for {len(apps)} apps:")
         for app in apps:
@@ -1275,9 +1426,30 @@ class PortableManagerApp(customtkinter.CTk):
                 logger.error(f"[ERROR] Unknown application type '{app_type}' for {name}")
                 
         logger.info("Bulk installation cycle completed.")
-        
-        # Restore UI button (Thread-safe)
-        self.install_btn.after(0, lambda: self.install_btn.configure(state="normal", text="Install Selected (V)"))
+        self.after(0, lambda: self.set_bulk_action_buttons_state())
+        self.after(0, lambda: self.start_installation_scan(show_log=False))
+
+    def process_uninstallations(self, apps):
+        self.uninstall_btn.after(0, lambda: self.set_bulk_action_buttons_state(uninstalling=True))
+
+        logger.info(f"Initiating bulk uninstallation cycle for {len(apps)} apps:")
+        for app in apps:
+            logger.info(f" - {app.get('Name')}")
+
+        for app in apps:
+            name = app.get("Name")
+            app_type = app.get("Type")
+
+            if app_type == "Installer":
+                self.execute_uninstaller(app)
+            elif app_type == "Portable-Copy":
+                self.remove_portable_copy(app)
+            else:
+                logger.error(f"[ERROR] Cannot uninstall '{name}': unsupported type '{app_type}'")
+
+        logger.info("Bulk uninstallation cycle completed.")
+        self.after(0, lambda: self.set_bulk_action_buttons_state())
+        self.after(0, lambda: self.start_installation_scan(show_log=False))
 
     # Installer Execution Logic (used for bulk installation)
     def execute_installer(self, app):
@@ -1337,6 +1509,56 @@ class PortableManagerApp(customtkinter.CTk):
                 logger.error(f"[ERROR] Failed to install {name}. Local installer failed/missing and winget execution failed: {e}")
         else:
             logger.error(f"[ERROR] Failed to install {name}. Local installer missing and no WingetID provided.")
+
+    def execute_uninstaller(self, app):
+        name = app.get("Name")
+        winget_id = app.get("WingetID", "")
+        target_destination = app.get("TargetDestination", "")
+
+        logger.info(f"Attempting to uninstall {name}...")
+        removed = False
+
+        if winget_id and self.is_winget_installed(winget_id):
+            try:
+                res = subprocess.run(
+                    f'winget uninstall --id "{winget_id}" --silent --disable-interactivity',
+                    shell=True
+                )
+                if res.returncode == 0:
+                    logger.info(f"[SUCCESS] Uninstalled {name} via Winget.")
+                    removed = True
+                else:
+                    logger.error(f"[ERROR] Failed to uninstall {name} via Winget. Exit code: {res.returncode}")
+            except Exception as e:
+                logger.error(f"[ERROR] Failed to uninstall {name} via Winget: {e}")
+
+        if self.is_portable_copy_installed(target_destination):
+            if self.remove_portable_copy(app):
+                removed = True
+
+        if not removed:
+            logger.info(f"[INFO] {name} is not installed or could not be removed.")
+
+    def remove_portable_copy(self, app):
+        name = app.get("Name")
+        target_destination = app.get("TargetDestination", "")
+
+        if not target_destination or not os.path.exists(target_destination):
+            return False
+
+        try:
+            shutil.rmtree(target_destination)
+            logger.info(f"[SUCCESS] Removed {name} portable copy from '{target_destination}'.")
+
+            shortcut_path = os.path.join(os.path.expanduser("~"), "Desktop", f"{name}.lnk")
+            if os.path.exists(shortcut_path):
+                os.remove(shortcut_path)
+                logger.info(f"[SUCCESS] Removed desktop shortcut for {name}.")
+
+            return True
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to remove portable copy for {name}: {e}")
+            return False
 
     # Portable-Copy Execution Logic (used for bulk and manual portable)
     def execute_portable_copy(self, app):

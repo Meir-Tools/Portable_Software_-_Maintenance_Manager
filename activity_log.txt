@@ -49,3 +49,24 @@
 [2026-06-15 05:19:25] Application started successfully.
 [2026-06-15 05:20:05] Scanning installed applications...
 [2026-06-15 05:20:11] Scan complete: 8 of 10 applications are installed.
+[2026-06-15 05:25:26] Application started successfully.
+[2026-06-15 05:25:32] Opened homepage for Steam: https://store.steampowered.com
+[2026-06-15 05:25:37] Opened homepage for 7-Zip: https://www.7-zip.org
+[2026-06-15 05:25:50] Opened homepage for GitHub Desktop: https://desktop.github.com
+[2026-06-15 05:25:56] Opened homepage for GitHub Desktop: https://desktop.github.com
+[2026-06-15 05:26:52] Added application to registry: VLC (Type: Installer)
+[2026-06-15 05:26:58] Manual Installation Triggered: VLC via Winget.
+[2026-06-15 05:27:23] [SUCCESS] Installed VLC via Winget.
+[2026-06-15 05:30:14] Application started successfully.
+[2026-06-15 05:30:32] Initiating bulk uninstallation cycle for 2 apps:
+[2026-06-15 05:30:32]  - Rainmeter
+[2026-06-15 05:30:32]  - VLC
+[2026-06-15 05:30:32] Attempting to uninstall Rainmeter...
+[2026-06-15 05:30:35] [SUCCESS] Uninstalled Rainmeter via Winget.
+[2026-06-15 05:30:35] Attempting to uninstall VLC...
+[2026-06-15 05:30:40] [SUCCESS] Uninstalled VLC via Winget.
+[2026-06-15 05:30:40] Bulk uninstallation cycle completed.
+[2026-06-15 05:30:59] Scanning installed applications...
+[2026-06-15 05:31:06] Scan complete: 8 of 11 applications are installed.
+[2026-06-15 05:31:19] Scanning installed applications...
+[2026-06-15 05:31:26] Scan complete: 7 of 11 applications are installed.

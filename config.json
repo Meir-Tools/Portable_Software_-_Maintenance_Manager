@@ -5,14 +5,16 @@
       "Type": "Portable-Run",
       "LocalPath": "PortableApps/Rufus/rufus.exe",
       "Logo": "Assets/rufus_logo.png",
-      "Description": "Create bootable USB drives and flash ISO images."
+      "Description": "Create bootable USB drives and flash ISO images.",
+      "Homepage": "https://rufus.ie"
     },
     {
       "Name": "H2testw (USB Health)",
       "Type": "Portable-Run",
       "LocalPath": "PortableApps/H2testw/h2testw.exe",
       "Logo": "Assets/h2testw_logo.png",
-      "Description": "Test USB flash drives for wear, bad sectors, and fake capacity."
+      "Description": "Test USB flash drives for wear, bad sectors, and fake capacity.",
+      "Homepage": "https://www.heise.de/download/product/h2testw-50539"
     }
   ],
   "Installers_After_Format": [
@@ -23,7 +25,8 @@
       "LocalInstaller": "LocalInstallers/SteamSetup.exe",
       "SilentArgs": "/S",
       "Logo": "Assets/steam_logo.png",
-      "Description": "Digital distribution platform for gaming."
+      "Description": "Digital distribution platform for gaming.",
+      "Homepage": "https://store.steampowered.com"
     },
     {
       "Name": "Notepad++ Portable",
@@ -32,7 +35,8 @@
       "Description": "Advanced text editor. Copies directly to avoid OS registry clutter.",
       "WingetID": "Notepad++.Notepad++",
       "LocalInstaller": "",
-      "SilentArgs": ""
+      "SilentArgs": "",
+      "Homepage": "https://notepad-plus-plus.org"
     },
     {
       "Name": "7-Zip",
@@ -41,7 +45,8 @@
       "Description": "No description provided.",
       "WingetID": "7zip.7zip",
       "LocalInstaller": "",
-      "SilentArgs": ""
+      "SilentArgs": "",
+      "Homepage": "https://www.7-zip.org"
     },
     {
       "Name": "Google Chrome",
@@ -50,7 +55,8 @@
       "Description": "No description provided.",
       "WingetID": "Google.Chrome",
       "LocalInstaller": "",
-      "SilentArgs": ""
+      "SilentArgs": "",
+      "Homepage": "https://www.google.com/chrome"
     },
     {
       "Name": "Antigravity",
@@ -59,7 +65,8 @@
       "Description": "No description provided.",
       "WingetID": "Google.Antigravity",
       "LocalInstaller": "",
-      "SilentArgs": ""
+      "SilentArgs": "",
+      "Homepage": "https://antigravity.google"
     },
     {
       "Name": "Google Drive",
@@ -68,7 +75,8 @@
       "Description": "No description provided.",
       "WingetID": "Google.GoogleDrive",
       "LocalInstaller": "",
-      "SilentArgs": ""
+      "SilentArgs": "",
+      "Homepage": "https://www.google.com/drive"
     },
     {
       "Name": "GitHub Desktop",
@@ -77,7 +85,8 @@
       "Description": "No description provided.",
       "WingetID": "GitHub.GitHubDesktop",
       "LocalInstaller": "",
-      "SilentArgs": ""
+      "SilentArgs": "",
+      "Homepage": "https://desktop.github.com"
     },
     {
       "Name": "Rainmeter",
@@ -85,6 +94,17 @@
       "Logo": "Assets/default_logo.png",
       "Description": "No description provided.",
       "WingetID": "Rainmeter.Rainmeter",
+      "LocalInstaller": "",
+      "SilentArgs": "",
+      "Homepage": "https://www.rainmeter.net"
+    },
+    {
+      "Name": "VLC",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "Homepage": "",
+      "WingetID": "VideoLAN.VLC",
       "LocalInstaller": "",
       "SilentArgs": ""
     }
