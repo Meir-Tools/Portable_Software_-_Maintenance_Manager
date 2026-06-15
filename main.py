@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import json
 import shutil
 import glob
@@ -9,6 +10,20 @@ import threading
 import subprocess
 import customtkinter
 from PIL import Image
+
+INSTALL_LOG_PATTERNS = [
+    (re.compile(r"\[SUCCESS\] Installed (.+?) via Winget\."), "Winget"),
+    (re.compile(r"\[SUCCESS\] Installed (.+?) via local installer\."), "Local Installer"),
+    (re.compile(r"\[SUCCESS\] Copied (.+?) Portable to "), "Portable-Copy"),
+    (re.compile(r"\[SUCCESS\] Copied (.+?) to "), "Portable-Copy"),
+]
+
+METHOD_LABELS = {
+    "Winget": "Winget",
+    "Local Installer": "Local Installer",
+    "Portable-Copy": "Portable Copy",
+    "Portable (Local)": "Portable (Local)",
+}
 
 # Setup standard logging
 logger = logging.getLogger("SoftwareManager")
@@ -46,10 +61,10 @@ class GUIHandler(logging.Handler):
             pass
 
 class AppDetailPopup(customtkinter.CTkToplevel):
-    def __init__(self, parent, app_data):
+    def __init__(self, parent, app_data, install_status=None):
         super().__init__(parent)
         self.title("Application Details")
-        self.geometry("420x280")
+        self.geometry("420x320")
         self.resizable(False, False)
         
         # Keep on top of main app window
@@ -76,13 +91,39 @@ class AppDetailPopup(customtkinter.CTkToplevel):
             text_color=("#64748b", "#94a3b8")
         )
         type_lbl.grid(row=1, column=0, padx=15, pady=2, sticky="w")
+
+        # Installation status
+        if install_status:
+            if install_status.get("installed"):
+                status_text = f"Status: Installed"
+                method = install_status.get("method")
+                if method:
+                    status_text += f" via {METHOD_LABELS.get(method, method)}"
+                status_color = ("#059669", "#34d399")
+            else:
+                status_text = "Status: Not installed"
+                status_color = ("#94a3b8", "#64748b")
+
+            status_lbl = customtkinter.CTkLabel(
+                frame, text=status_text,
+                font=customtkinter.CTkFont(size=12, weight="bold"),
+                text_color=status_color
+            )
+            status_lbl.grid(row=2, column=0, padx=15, pady=2, sticky="w")
+            desc_row = 3
+            desc_box_row = 4
+            close_row = 5
+        else:
+            desc_row = 2
+            desc_box_row = 3
+            close_row = 4
         
         # Description
         desc_lbl = customtkinter.CTkLabel(
             frame, text="Description:",
             font=customtkinter.CTkFont(size=12, weight="bold")
         )
-        desc_lbl.grid(row=2, column=0, padx=15, pady=(10, 0), sticky="w")
+        desc_lbl.grid(row=desc_row, column=0, padx=15, pady=(10, 0), sticky="w")
         
         desc_box = customtkinter.CTkTextbox(
             frame, width=360, height=90, wrap="word",
@@ -91,14 +132,14 @@ class AppDetailPopup(customtkinter.CTkToplevel):
         )
         desc_box.insert("0.0", app_data.get("Description", "No description provided."))
         desc_box.configure(state="disabled")
-        desc_box.grid(row=3, column=0, padx=15, pady=(0, 10), sticky="nsew")
+        desc_box.grid(row=desc_box_row, column=0, padx=15, pady=(0, 10), sticky="nsew")
         
         # Close Button
         close_btn = customtkinter.CTkButton(
             frame, text="Close", width=90, command=self.destroy,
             fg_color=("#1f538d", "#1f538d"), hover_color=("#2b6cb0", "#2b6cb0")
         )
-        close_btn.grid(row=4, column=0, padx=15, pady=(0, 15), sticky="e")
+        close_btn.grid(row=close_row, column=0, padx=15, pady=(0, 15), sticky="e")
 
 
 class AddProgramDialog(customtkinter.CTkToplevel):
@@ -413,6 +454,9 @@ class PortableManagerApp(customtkinter.CTk):
         # Registry and UI lists
         self.config_data = {}
         self.checkbox_vars = {} # Maps installer name -> BooleanVar
+        self.install_status_cache = {}  # Maps app name -> status dict
+        self.install_history = {}
+        self.status_scan_in_progress = False
         
         self.load_config()
         self.create_layout()
@@ -425,6 +469,7 @@ class PortableManagerApp(customtkinter.CTk):
         # Set active tab to Software Installation on startup
         self.tabview.set("🚀 Software Installation")
         logger.info("Application started successfully.")
+        self.after(500, lambda: self.start_installation_scan(show_log=False))
 
     def load_config(self):
         config_path = "config.json"
@@ -448,6 +493,176 @@ class PortableManagerApp(customtkinter.CTk):
     def refresh_ui(self):
         self.populate_maintenance_tab()
         self.populate_installers_tab()
+        self.populate_installed_tab()
+
+    def parse_install_history(self):
+        history = {}
+        log_path = "activity_log.txt"
+        if not os.path.exists(log_path):
+            return history
+
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    for pattern, method in INSTALL_LOG_PATTERNS:
+                        match = pattern.search(line)
+                        if match:
+                            history[match.group(1).strip()] = method
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to read install history from log: {e}")
+
+        return history
+
+    def is_winget_installed(self, winget_id):
+        if not winget_id:
+            return False
+        try:
+            res = subprocess.run(
+                f'winget list --id "{winget_id}" --disable-interactivity',
+                shell=True, capture_output=True, text=True, timeout=45
+            )
+            return res.returncode == 0
+        except Exception:
+            return False
+
+    def is_portable_copy_installed(self, target_destination):
+        if not target_destination:
+            return False
+        try:
+            return os.path.isdir(target_destination) and bool(os.listdir(target_destination))
+        except Exception:
+            return False
+
+    def detect_installation_status(self, app):
+        name = app.get("Name", "Unknown")
+        app_type = app.get("Type", "")
+        log_method = self.install_history.get(name)
+        result = {"installed": False, "method": None, "details": ""}
+
+        if app_type == "Installer":
+            winget_id = app.get("WingetID", "")
+            if winget_id and self.is_winget_installed(winget_id):
+                result["installed"] = True
+                result["method"] = log_method or "Winget"
+                result["details"] = f"Detected via Winget ({winget_id})"
+                return result
+
+            target = app.get("TargetDestination", "")
+            if self.is_portable_copy_installed(target):
+                result["installed"] = True
+                result["method"] = log_method or "Portable-Copy"
+                result["details"] = f"Found at {target}"
+                return result
+
+            if log_method == "Local Installer":
+                result["installed"] = True
+                result["method"] = "Local Installer"
+                result["details"] = "Recorded in activity log"
+                return result
+
+        elif app_type == "Portable-Copy":
+            target = app.get("TargetDestination", "")
+            if self.is_portable_copy_installed(target):
+                result["installed"] = True
+                result["method"] = log_method or "Portable-Copy"
+                result["details"] = f"Found at {target}"
+                return result
+
+        elif app_type == "Portable-Run":
+            local_path = app.get("LocalPath", "")
+            if local_path and os.path.exists(local_path):
+                result["installed"] = True
+                result["method"] = "Portable (Local)"
+                result["details"] = f"Available at {local_path}"
+                return result
+
+        return result
+
+    def get_all_registry_apps(self):
+        apps = []
+        for tool in self.config_data.get("Maintenance_Tools", []):
+            apps.append(tool)
+        for inst in self.config_data.get("Installers_After_Format", []):
+            apps.append(inst)
+        return apps
+
+    def get_install_status(self, app):
+        name = app.get("Name")
+        if name in self.install_status_cache:
+            return self.install_status_cache[name]
+        return {"installed": False, "method": None, "details": "Not scanned yet"}
+
+    def create_status_badge(self, parent, install_status):
+        if install_status.get("checking"):
+            text = "Checking..."
+            fg_color = ("#f59e0b", "#d97706")
+            text_color = "white"
+        elif install_status.get("installed"):
+            method = install_status.get("method")
+            method_label = METHOD_LABELS.get(method, method) if method else "Installed"
+            text = f"✓ {method_label}"
+            fg_color = ("#10b981", "#059669")
+            text_color = "white"
+        else:
+            text = "Not Installed"
+            fg_color = ("#e2e8f0", "#334155")
+            text_color = ("#64748b", "#94a3b8")
+
+        return customtkinter.CTkLabel(
+            parent, text=text, corner_radius=6,
+            font=customtkinter.CTkFont(size=10, weight="bold"),
+            fg_color=fg_color, text_color=text_color,
+            padx=8, pady=2
+        )
+
+    def start_installation_scan(self, show_log=True):
+        if self.status_scan_in_progress:
+            return
+
+        self.status_scan_in_progress = True
+        self.install_history = self.parse_install_history()
+        apps = self.get_all_registry_apps()
+
+        for app in apps:
+            name = app.get("Name")
+            self.install_status_cache[name] = {"installed": False, "method": None, "details": "", "checking": True}
+
+        self.refresh_ui()
+
+        if show_log:
+            logger.info("Scanning installed applications...")
+
+        threading.Thread(target=self._run_installation_scan, args=(apps, show_log), daemon=True).start()
+
+    def _run_installation_scan(self, apps, show_log):
+        try:
+            for app in apps:
+                name = app.get("Name")
+                status = self.detect_installation_status(app)
+                status["checking"] = False
+                self.install_status_cache[name] = status
+                self.after(0, self._update_app_status_ui, app, status)
+        finally:
+            self.status_scan_in_progress = False
+            if show_log:
+                installed_count = sum(1 for s in self.install_status_cache.values() if s.get("installed"))
+                logger.info(f"Scan complete: {installed_count} of {len(apps)} applications are installed.")
+            self.after(0, self.populate_installed_tab)
+            if hasattr(self, "refresh_status_btn"):
+                self.after(0, lambda: self.refresh_status_btn.configure(state="normal", text="🔄 Refresh Scan"))
+
+    def _update_app_status_ui(self, app, status):
+        name = app.get("Name")
+        for scroll_frame in [getattr(self, "maint_scroll", None), getattr(self, "inst_scroll", None)]:
+            if not scroll_frame:
+                continue
+            badge = getattr(scroll_frame, f"status_badge_{name}", None)
+            if badge and badge.winfo_exists():
+                new_badge = self.create_status_badge(badge.master, status)
+                new_badge.grid(row=badge.grid_info().get("row", 0), column=badge.grid_info().get("column", 0),
+                               padx=badge.grid_info().get("padx", 0), pady=badge.grid_info().get("pady", 0), sticky="w")
+                setattr(scroll_frame, f"status_badge_{name}", new_badge)
+                badge.destroy()
 
     def create_layout(self):
         # Configure Main Grid: Left panel (main) vs Right panel (sidebar)
@@ -468,8 +683,10 @@ class PortableManagerApp(customtkinter.CTk):
         # Add Tabs
         tab_maintenance = "🛠️ Diagnostics & Maintenance"
         tab_installers = "🚀 Software Installation"
+        tab_installed = "📦 Installed Apps"
         self.tabview.add(tab_maintenance)
         self.tabview.add(tab_installers)
+        self.tabview.add(tab_installed)
         
         # Configure Tab content layout
         self.tabview.tab(tab_maintenance).grid_columnconfigure(0, weight=1)
@@ -478,6 +695,10 @@ class PortableManagerApp(customtkinter.CTk):
         self.tabview.tab(tab_installers).grid_columnconfigure(0, weight=1)
         self.tabview.tab(tab_installers).grid_rowconfigure(0, weight=0) # row 0: static header
         self.tabview.tab(tab_installers).grid_rowconfigure(1, weight=1) # row 1: scroll frame
+
+        self.tabview.tab(tab_installed).grid_columnconfigure(0, weight=1)
+        self.tabview.tab(tab_installed).grid_rowconfigure(0, weight=0)
+        self.tabview.tab(tab_installed).grid_rowconfigure(1, weight=1)
         
         # Populate Maintenance Tab (Scrollable Frame)
         self.maint_scroll = customtkinter.CTkScrollableFrame(self.tabview.tab(tab_maintenance), fg_color="transparent")
@@ -502,6 +723,32 @@ class PortableManagerApp(customtkinter.CTk):
         self.inst_scroll.grid(row=1, column=0, sticky="nsew")
         self.inst_scroll.grid_columnconfigure(0, weight=1)
         self.populate_installers_tab()
+
+        # Installed Apps tab header
+        self.installed_header = customtkinter.CTkFrame(self.tabview.tab(tab_installed), fg_color="transparent")
+        self.installed_header.grid(row=0, column=0, padx=5, pady=(5, 10), sticky="ew")
+        self.installed_header.grid_columnconfigure(0, weight=1)
+
+        self.installed_summary_lbl = customtkinter.CTkLabel(
+            self.installed_header,
+            text="Shows applications from your registry that are already installed on this PC.",
+            font=customtkinter.CTkFont(size=12),
+            text_color=("#64748b", "#94a3b8"),
+            anchor="w"
+        )
+        self.installed_summary_lbl.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+
+        self.refresh_status_btn = customtkinter.CTkButton(
+            self.installed_header, text="🔄 Refresh Scan", width=130,
+            fg_color=("#1f538d", "#1e40af"), hover_color=("#2b6cb0", "#1d4ed8"),
+            command=self.on_refresh_scan_clicked
+        )
+        self.refresh_status_btn.grid(row=0, column=1, padx=5, pady=5, sticky="e")
+
+        self.installed_scroll = customtkinter.CTkScrollableFrame(self.tabview.tab(tab_installed), fg_color="transparent")
+        self.installed_scroll.grid(row=1, column=0, sticky="nsew")
+        self.installed_scroll.grid_columnconfigure(0, weight=1)
+        self.populate_installed_tab()
         
         # RIGHT AREA: Sidebar Panel
         self.sidebar = customtkinter.CTkFrame(self, width=250, corner_radius=12, fg_color=("#f1f5f9", "#0f172a"))
@@ -544,7 +791,11 @@ class PortableManagerApp(customtkinter.CTk):
         self.log_textbox.configure(state="disabled")
 
     def show_app_popup(self, app_data):
-        AppDetailPopup(self, app_data)
+        AppDetailPopup(self, app_data, self.get_install_status(app_data))
+
+    def on_refresh_scan_clicked(self):
+        self.refresh_status_btn.configure(state="disabled", text="Scanning...")
+        self.start_installation_scan(show_log=True)
 
     def open_add_program_dialog(self):
         if hasattr(self, "add_dialog") and self.add_dialog.winfo_exists():
@@ -621,6 +872,13 @@ class PortableManagerApp(customtkinter.CTk):
             )
         return btn
 
+    def add_status_badge_to_detail_frame(self, scroll_frame, detail_frame, app):
+        name = app.get("Name")
+        status = self.get_install_status(app)
+        badge = self.create_status_badge(detail_frame, status)
+        badge.grid(row=2, column=0, sticky="w", pady=(2, 0))
+        setattr(scroll_frame, f"status_badge_{name}", badge)
+
     def populate_maintenance_tab(self):
         for widget in self.maint_scroll.winfo_children():
             widget.destroy()
@@ -656,6 +914,8 @@ class PortableManagerApp(customtkinter.CTk):
                 anchor="w"
             )
             desc_lbl.grid(row=1, column=0, sticky="w")
+
+            self.add_status_badge_to_detail_frame(self.maint_scroll, detail_frame, tool)
             
             # Action buttons panel
             actions_frame = customtkinter.CTkFrame(row_frame, fg_color="transparent")
@@ -751,6 +1011,8 @@ class PortableManagerApp(customtkinter.CTk):
                 anchor="w"
             )
             desc_lbl.grid(row=1, column=0, sticky="w")
+
+            self.add_status_badge_to_detail_frame(self.inst_scroll, detail_frame, inst)
             
             # Action buttons panel
             actions_frame = customtkinter.CTkFrame(row_frame, fg_color="transparent")
@@ -815,6 +1077,84 @@ class PortableManagerApp(customtkinter.CTk):
                 command=lambda k=inst: self.confirm_and_remove_app(k)
             )
             del_btn.grid(row=0, column=5, padx=(0, 12), pady=10, sticky="e")
+
+    def populate_installed_tab(self):
+        if not hasattr(self, "installed_scroll"):
+            return
+
+        for widget in self.installed_scroll.winfo_children():
+            widget.destroy()
+
+        installed_apps = []
+        for app in self.get_all_registry_apps():
+            status = self.get_install_status(app)
+            if status.get("installed"):
+                installed_apps.append((app, status))
+
+        if hasattr(self, "installed_summary_lbl"):
+            if self.status_scan_in_progress:
+                summary = "Scanning installed applications..."
+            elif installed_apps:
+                summary = f"{len(installed_apps)} installed application(s) found in your registry."
+            else:
+                summary = "No installed applications found yet. Try Refresh Scan."
+            self.installed_summary_lbl.configure(text=summary)
+
+        if not installed_apps:
+            empty_lbl = customtkinter.CTkLabel(
+                self.installed_scroll,
+                text="No installed apps to display.\nUse Refresh Scan or check the other tabs for status badges.",
+                font=customtkinter.CTkFont(size=13),
+                text_color=("#64748b", "#94a3b8")
+            )
+            empty_lbl.grid(row=0, column=0, padx=20, pady=40)
+            return
+
+        for i, (app, status) in enumerate(installed_apps):
+            row_frame = customtkinter.CTkFrame(self.installed_scroll, height=80, corner_radius=8)
+            row_frame.grid(row=i, column=0, padx=5, pady=5, sticky="ew")
+            row_frame.grid_columnconfigure(1, weight=1)
+
+            logo_btn = self.get_logo_button(row_frame, app)
+            logo_btn.grid(row=0, column=0, padx=12, pady=10, sticky="nw")
+
+            detail_frame = customtkinter.CTkFrame(row_frame, fg_color="transparent")
+            detail_frame.grid(row=0, column=1, padx=(0, 10), pady=10, sticky="ew")
+            detail_frame.grid_columnconfigure(0, weight=1)
+
+            name_lbl = customtkinter.CTkLabel(
+                detail_frame, text=app.get("Name", "Application"),
+                font=customtkinter.CTkFont(size=14, weight="bold"),
+                anchor="w"
+            )
+            name_lbl.grid(row=0, column=0, sticky="w")
+
+            method = status.get("method")
+            method_label = METHOD_LABELS.get(method, method) if method else "Unknown"
+            method_lbl = customtkinter.CTkLabel(
+                detail_frame, text=f"Installed via: {method_label}",
+                font=customtkinter.CTkFont(size=12, weight="bold"),
+                text_color=("#059669", "#34d399"),
+                anchor="w"
+            )
+            method_lbl.grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+            details = status.get("details", "")
+            if details:
+                details_lbl = customtkinter.CTkLabel(
+                    detail_frame, text=details,
+                    font=customtkinter.CTkFont(size=11),
+                    text_color=("#475569", "#94a3b8"),
+                    anchor="w"
+                )
+                details_lbl.grid(row=2, column=0, sticky="w")
+
+            type_lbl = customtkinter.CTkLabel(
+                row_frame, text=app.get("Type", ""),
+                font=customtkinter.CTkFont(size=11),
+                text_color=("#64748b", "#94a3b8")
+            )
+            type_lbl.grid(row=0, column=2, padx=12, pady=10, sticky="e")
 
     # Manual installation/execution handlers
     def install_via_winget_clicked(self, app):
