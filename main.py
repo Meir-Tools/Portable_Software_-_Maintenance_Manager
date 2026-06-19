@@ -189,7 +189,7 @@ class AddProgramDialog(customtkinter.CTkToplevel):
         self.edit_app_data = edit_app_data # If provided, we are editing this app
         
         self.title("Edit Program" if self.edit_app_data else "Add New Program")
-        self.geometry("520x610")
+        self.geometry("520x650")
         self.resizable(False, False)
         self.attributes("-topmost", True)
         
@@ -258,6 +258,13 @@ class AddProgramDialog(customtkinter.CTkToplevel):
         args_lbl.grid(row=2, column=0, padx=15, pady=8, sticky="w")
         self.args_entry = customtkinter.CTkEntry(self.installer_frame, placeholder_text="e.g. /S or /silent")
         self.args_entry.grid(row=2, column=1, columnspan=2, padx=15, pady=8, sticky="ew")
+        
+        settings_lbl = customtkinter.CTkLabel(self.installer_frame, text="Settings File:", font=customtkinter.CTkFont(weight="bold"))
+        settings_lbl.grid(row=3, column=0, padx=15, pady=8, sticky="w")
+        self.settings_entry = customtkinter.CTkEntry(self.installer_frame, placeholder_text="e.g. LocalInstallers/notepad_settings.bat")
+        self.settings_entry.grid(row=3, column=1, padx=(15, 5), pady=8, sticky="ew")
+        self.settings_browse = customtkinter.CTkButton(self.installer_frame, text="Browse", width=70, command=self.browse_settings_installer)
+        self.settings_browse.grid(row=3, column=2, padx=(0, 15), pady=8, sticky="e")
         
         # 2. Portable-Copy Frame
         self.copy_frame = customtkinter.CTkFrame(self.dynamic_container, fg_color="transparent")
@@ -337,6 +344,7 @@ class AddProgramDialog(customtkinter.CTkToplevel):
                 self.winget_entry.insert(0, self.edit_app_data.get("WingetID", ""))
                 self.loc_inst_entry.insert(0, self.edit_app_data.get("LocalInstaller", ""))
                 self.args_entry.insert(0, self.edit_app_data.get("SilentArgs", ""))
+                self.settings_entry.insert(0, self.edit_app_data.get("SettingsInstaller", ""))
             elif app_type == "Portable-Copy":
                 self.src_entry.insert(0, self.edit_app_data.get("SourceFolder", ""))
                 self.dst_entry.insert(0, self.edit_app_data.get("TargetDestination", ""))
@@ -379,6 +387,13 @@ class AddProgramDialog(customtkinter.CTkToplevel):
         if path:
             self.loc_inst_entry.delete(0, "end")
             self.loc_inst_entry.insert(0, self.make_relative(path))
+
+    def browse_settings_installer(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(filetypes=[("Executables & Scripts", "*.exe;*.bat;*.cmd;*.reg;*.msi;*.ps1"), ("All Files", "*.*")])
+        if path:
+            self.settings_entry.delete(0, "end")
+            self.settings_entry.insert(0, self.make_relative(path))
 
     def browse_source_folder(self):
         from tkinter import filedialog
@@ -433,6 +448,7 @@ class AddProgramDialog(customtkinter.CTkToplevel):
             app_data["WingetID"] = winget_id
             app_data["LocalInstaller"] = local_inst
             app_data["SilentArgs"] = args
+            app_data["SettingsInstaller"] = self.settings_entry.get().strip()
             
         elif app_type == "Portable-Copy":
             src = self.src_entry.get().strip()
@@ -1157,6 +1173,17 @@ class PortableManagerApp(customtkinter.CTk):
             )
             portable_btn.grid(row=0, column=action_col + 2, padx=2)
             
+            # 4. Settings Installer
+            settings_inst = inst.get("SettingsInstaller", "")
+            settings_btn = customtkinter.CTkButton(
+                actions_frame, text="⚙️ Settings", width=75, height=28, font=customtkinter.CTkFont(size=11, weight="bold"),
+                fg_color=("#f59e0b", "#d97706") if settings_inst else ("#cbd5e1", "#334155"),
+                text_color="white" if settings_inst else ("#94a3b8", "#64748b"),
+                state="normal" if settings_inst else "disabled",
+                command=lambda a=inst: self.install_settings_clicked(a)
+            )
+            settings_btn.grid(row=0, column=action_col + 3, padx=2)
+            
             # Checkbox for bulk select
             var = customtkinter.BooleanVar(value=False)
             self.checkbox_vars[inst.get("Name")] = var
@@ -1319,6 +1346,36 @@ class PortableManagerApp(customtkinter.CTk):
                 logger.error(f"[ERROR] Local installer for {name} exited with code {res.returncode}")
         except Exception as e:
             logger.error(f"[ERROR] Failed running local installer for {name}: {e}")
+
+    def install_settings_clicked(self, app):
+        threading.Thread(target=self.run_settings_installer, args=(app,), daemon=True).start()
+
+    def run_settings_installer(self, app):
+        name = app.get("Name")
+        settings_path = app.get("SettingsInstaller")
+        logger.info(f"Settings Installation Triggered: {name} settings.")
+        
+        if not settings_path or not os.path.exists(settings_path):
+            logger.error(f"[ERROR] Settings file not found for {name} at '{settings_path}'")
+            return
+            
+        try:
+            full_path = os.path.abspath(settings_path)
+            _, ext = os.path.splitext(full_path.lower())
+            
+            if ext == '.reg':
+                res = subprocess.run(f'regedit.exe /s "{full_path}"', shell=True)
+            elif ext == '.ps1':
+                res = subprocess.run(f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{full_path}"', shell=True)
+            else:
+                res = subprocess.run(f'"{full_path}"', shell=True)
+                
+            if res.returncode == 0:
+                logger.info(f"[SUCCESS] Installed settings for {name}.")
+            else:
+                logger.error(f"[ERROR] Settings installer for {name} exited with code {res.returncode}")
+        except Exception as e:
+            logger.error(f"[ERROR] Failed running settings installer for {name}: {e}")
 
     def install_via_portable_clicked(self, app):
         if app.get("SourceFolder"):

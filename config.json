@@ -36,6 +36,7 @@
       "WingetID": "Notepad++.Notepad++",
       "LocalInstaller": "",
       "SilentArgs": "",
+      "SettingsInstaller": "LocalInstallers/notepad_settings.bat",
       "Homepage": "https://notepad-plus-plus.org"
     },
     {
@@ -105,6 +106,16 @@
       "Description": "No description provided.",
       "Homepage": "",
       "WingetID": "VideoLAN.VLC",
+      "LocalInstaller": "",
+      "SilentArgs": ""
+    },
+    {
+      "Name": "PortableApps.com Platform",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "Homepage": "",
+      "WingetID": "PortableApps.PortableAppsPlatform",
       "LocalInstaller": "",
       "SilentArgs": ""
     }
