@@ -13,6 +13,23 @@ from urllib.parse import urlparse
 import customtkinter
 from PIL import Image
 
+def get_short_path(long_path):
+    try:
+        import ctypes
+        from ctypes import wintypes
+        GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
+        GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        GetShortPathNameW.restype = wintypes.DWORD
+        
+        buf_size = GetShortPathNameW(long_path, None, 0)
+        if buf_size > 0:
+            buffer = ctypes.create_unicode_buffer(buf_size)
+            if GetShortPathNameW(long_path, buffer, buf_size) > 0:
+                return buffer.value
+    except Exception:
+        pass
+    return long_path
+
 INSTALL_LOG_PATTERNS = [
     (re.compile(r"\[SUCCESS\] Installed (.+?) via Winget\."), "Winget"),
     (re.compile(r"\[SUCCESS\] Installed (.+?) via local installer\."), "Local Installer"),
@@ -1361,14 +1378,18 @@ class PortableManagerApp(customtkinter.CTk):
             
         try:
             full_path = os.path.abspath(settings_path)
+            cwd_dir = os.path.dirname(full_path)
+            short_path = get_short_path(full_path)
             _, ext = os.path.splitext(full_path.lower())
             
             if ext == '.reg':
-                res = subprocess.run(f'regedit.exe /s "{full_path}"', shell=True)
+                res = subprocess.run(f'regedit.exe /s "{short_path}"', cwd=cwd_dir)
             elif ext == '.ps1':
-                res = subprocess.run(f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{full_path}"', shell=True)
+                res = subprocess.run(f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{short_path}"', cwd=cwd_dir)
+            elif ext in ('.bat', '.cmd'):
+                res = subprocess.run(f'cmd.exe /c {short_path}', cwd=cwd_dir)
             else:
-                res = subprocess.run(f'"{full_path}"', shell=True)
+                res = subprocess.run(f'"{short_path}"', cwd=cwd_dir)
                 
             if res.returncode == 0:
                 logger.info(f"[SUCCESS] Installed settings for {name}.")
