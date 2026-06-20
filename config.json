@@ -118,6 +118,17 @@
       "WingetID": "PortableApps.PortableAppsPlatform",
       "LocalInstaller": "",
       "SilentArgs": ""
+    },
+    {
+      "Name": "AHK - AutoHotkey",
+      "Type": "Installer",
+      "Logo": "Assets/default_logo.png",
+      "Description": "No description provided.",
+      "Homepage": "",
+      "WingetID": "AutoHotkey.AutoHotkey",
+      "LocalInstaller": "",
+      "SilentArgs": "",
+      "SettingsInstaller": ""
     }
   ]
 }

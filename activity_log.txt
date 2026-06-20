@@ -144,3 +144,7 @@
 [2026-06-19 18:59:11] [SUCCESS] Installed settings for Notepad++ Portable.
 [2026-06-19 18:59:25] Settings Installation Triggered: Notepad++ Portable settings.
 [2026-06-19 18:59:29] [SUCCESS] Installed settings for Notepad++ Portable.
+[2026-06-21 01:24:11] Application started successfully.
+[2026-06-21 01:24:44] Added application to registry: AHK - AutoHotkey (Type: Installer)
+[2026-06-21 01:24:53] Manual Installation Triggered: AHK - AutoHotkey via Winget.
+[2026-06-21 01:25:02] [SUCCESS] Installed AHK - AutoHotkey via Winget.
